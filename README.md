@@ -48,6 +48,10 @@
 
 ---
 
+## Tech stack
+
+Next.js 14, TypeScript, Tailwind CSS, Vitest.
+
 ## Quick start
 
 ```bash
