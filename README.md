@@ -1,6 +1,6 @@
 # MedflowX
 
-**OPD Token Allocation System** — elastic capacity management for hospital out-patient departments. Built with Next.js 14 and TypeScript.
+**OPD Token Allocation System** — elastic capacity management for hospital out-patient departments. Overview: token allocation by priority, waitlist reallocation, emergency insertion, and delay propagation. Built with Next.js 14 and TypeScript.
 
 **Author:** Yash Dhiman
 
