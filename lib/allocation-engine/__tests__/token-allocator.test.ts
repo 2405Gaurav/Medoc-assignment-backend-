@@ -6,15 +6,16 @@ import { allocateToken, findSlotForTime } from "@/lib/allocation-engine";
 const DATE = "2024-02-01";
 
 describe("token-allocator", () => {
-  beforeEach(() => {
-    store.reset();
-    seedForDate(DATE);
+  beforeEach(async () => {
+    await store.reset();
+    await seedForDate(DATE);
   });
 
-  it("allocates token when slot has capacity", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("allocates token when slot has capacity", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
-    const r = allocateToken({
+    const r = await allocateToken({
       patientId: "P1",
       doctorId: "D1",
       slotTime: slot!.startTime,
@@ -26,12 +27,13 @@ describe("token-allocator", () => {
     expect(r.token!.positionInQueue).toBe(1);
   });
 
-  it("enforces slot capacity - adds to waitlist when full", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("enforces slot capacity - adds to waitlist when full", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
     const max = slot!.maxCapacity;
     for (let i = 0; i < max; i++) {
-      const r = allocateToken({
+      const r = await allocateToken({
         patientId: `P-${i}`,
         doctorId: "D1",
         slotTime: slot!.startTime,
@@ -39,7 +41,7 @@ describe("token-allocator", () => {
       });
       expect(r.success).toBe(true);
     }
-    const next = allocateToken({
+    const next = await allocateToken({
       patientId: "P-full",
       doctorId: "D1",
       slotTime: slot!.startTime,
@@ -50,9 +52,10 @@ describe("token-allocator", () => {
     expect(next.waitlistPosition).toBeGreaterThanOrEqual(1);
   });
 
-  it("rejects invalid doctor", () => {
-    const slot = store.slots.getAll()[0];
-    const r = allocateToken({
+  it("rejects invalid doctor", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots[0];
+    const r = await allocateToken({
       patientId: "P1",
       doctorId: "INVALID",
       slotTime: slot!.startTime,
@@ -62,15 +65,16 @@ describe("token-allocator", () => {
     expect(r.message).toContain("doctor");
   });
 
-  it("rejects duplicate booking for same patient+doctor", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
-    allocateToken({
+  it("rejects duplicate booking for same patient+doctor", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
+    await allocateToken({
       patientId: "P-dup",
       doctorId: "D1",
       slotTime: slot!.startTime,
       tokenSource: "walk_in",
     });
-    const r2 = allocateToken({
+    const r2 = await allocateToken({
       patientId: "P-dup",
       doctorId: "D1",
       slotTime: slot!.startTime,

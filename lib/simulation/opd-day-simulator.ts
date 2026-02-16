@@ -1,6 +1,7 @@
 /**
  * One-day OPD simulation with 3 doctors and realistic events.
  * Uses store and allocation engine directly (no HTTP) for deterministic runs.
+ * All operations are now async for Supabase store.
  */
 
 import { v4 as uuidv4 } from "uuid";
@@ -39,9 +40,10 @@ function log(time: string, type: string, description: string, outcome?: string) 
 }
 
 /** Create or get patient */
-function ensurePatient(id: string, name: string): void {
-  if (!store.patients.getById(id)) {
-    store.patients.set({
+async function ensurePatient(id: string, name: string): Promise<void> {
+  const existing = await store.patients.getById(id);
+  if (!existing) {
+    await store.patients.set({
       id,
       name,
       phone: "+91-9876543210",
@@ -53,8 +55,8 @@ function ensurePatient(id: string, name: string): void {
 }
 
 /** Get slot at time for doctor */
-function getSlotAt(doctorId: string, date: string, timeStr: string) {
-  const slots = store.slots.getByDoctorAndDate(doctorId, date);
+async function getSlotAt(doctorId: string, date: string, timeStr: string) {
+  const slots = await store.slots.getByDoctorAndDate(doctorId, date);
   const [h, m] = timeStr.split(":").map(Number);
   const target = new Date(date);
   target.setHours(h, m, 0, 0);
@@ -65,18 +67,18 @@ function getSlotAt(doctorId: string, date: string, timeStr: string) {
   });
 }
 
-export function runSimulation(scenario: Scenario): {
+export async function runSimulation(scenario: Scenario): Promise<{
   events: SimEvent[];
   totalAllocated: number;
   waitlistSize: number;
   completed: number;
   reallocations: number;
   slots: TimeSlot[];
-} {
+}> {
   eventsLog.length = 0;
   const date = "2024-02-01";
-  seedForDate(date);
-  const doctors = store.doctors.getAll();
+  await seedForDate(date);
+  const doctors = await store.doctors.getAll();
   let reallocations = 0;
 
   const d1 = doctors[0]!.id;
@@ -86,15 +88,15 @@ export function runSimulation(scenario: Scenario): {
   // 50+ online bookings
   for (let i = 0; i < 52; i++) {
     const patientId = `P-online-${i}`;
-    ensurePatient(patientId, `Patient Online ${i}`);
+    await ensurePatient(patientId, `Patient Online ${i}`);
     const doc = doctors[i % 3]!;
-    const slot = getSlotAt(doc.id, date, "09:00");
+    const slot = await getSlotAt(doc.id, date, "09:00");
     if (slot) {
       const slotTime =
         i % 4 === 0
           ? slot.startTime
           : new Date(new Date(slot.startTime).getTime() + (i % 3) * 15 * 60 * 1000).toISOString();
-      const r = allocateToken({
+      const r = await allocateToken({
         patientId,
         doctorId: doc.id,
         slotTime,
@@ -110,12 +112,12 @@ export function runSimulation(scenario: Scenario): {
   }
 
   // Simultaneous arrival of 5 walk-ins at 9:05 AM (same doctor/slot)
-  const slot9 = getSlotAt(d1, date, "09:05");
+  const slot9 = await getSlotAt(d1, date, "09:05");
   if (slot9) {
     for (let i = 0; i < 5; i++) {
       const patientId = `P-walkin-9:05-${i}`;
-      ensurePatient(patientId, `Walk-in 9:05 #${i}`);
-      const r = allocateToken({
+      await ensurePatient(patientId, `Walk-in 9:05 #${i}`);
+      const r = await allocateToken({
         patientId,
         doctorId: d1,
         slotTime: slot9.startTime,
@@ -134,12 +136,12 @@ export function runSimulation(scenario: Scenario): {
   const walkInTimes = ["09:30", "10:00", "10:15", "10:45", "11:00", "11:20", "11:40", "12:00"];
   for (let i = 0; i < 18; i++) {
     const patientId = `P-walkin-${i}`;
-    ensurePatient(patientId, `Walk-in ${i}`);
+    await ensurePatient(patientId, `Walk-in ${i}`);
     const doc = doctors[i % 3]!;
     const timeStr = walkInTimes[i % walkInTimes.length]!;
-    const slot = getSlotAt(doc.id, date, timeStr);
+    const slot = await getSlotAt(doc.id, date, timeStr);
     if (slot) {
-      const r = allocateToken({
+      const r = await allocateToken({
         patientId,
         doctorId: doc.id,
         slotTime: slot.startTime,
@@ -157,11 +159,11 @@ export function runSimulation(scenario: Scenario): {
   // 5+ paid priority
   for (let i = 0; i < 6; i++) {
     const patientId = `P-paid-${i}`;
-    ensurePatient(patientId, `Paid Priority ${i}`);
+    await ensurePatient(patientId, `Paid Priority ${i}`);
     const doc = doctors[i % 3]!;
-    const slot = getSlotAt(doc.id, date, i % 2 === 0 ? "10:00" : "11:00");
+    const slot = await getSlotAt(doc.id, date, i % 2 === 0 ? "10:00" : "11:00");
     if (slot) {
-      const r = allocateToken({
+      const r = await allocateToken({
         patientId,
         doctorId: doc.id,
         slotTime: slot.startTime,
@@ -179,11 +181,11 @@ export function runSimulation(scenario: Scenario): {
   // 10+ follow-up
   for (let i = 0; i < 12; i++) {
     const patientId = `P-follow-${i}`;
-    ensurePatient(patientId, `Follow-up ${i}`);
+    await ensurePatient(patientId, `Follow-up ${i}`);
     const doc = doctors[i % 3]!;
-    const slot = getSlotAt(doc.id, date, "09:30");
+    const slot = await getSlotAt(doc.id, date, "09:30");
     if (slot) {
-      const r = allocateToken({
+      const r = await allocateToken({
         patientId,
         doctorId: doc.id,
         slotTime: slot.startTime,
@@ -199,12 +201,12 @@ export function runSimulation(scenario: Scenario): {
   }
 
   // 3 cancellations -> waitlist promotions
-  const allTokens = store.tokens.getAll().filter((t) => t.status === "allocated");
+  const allTokens = (await store.tokens.getAll()).filter((t) => t.status === "allocated");
   for (let i = 0; i < 3 && i < allTokens.length; i++) {
     const t = allTokens[i]!;
-    store.tokens.set({ ...t, status: "cancelled" });
-    decrementSlotOccupancy(t.slotId);
-    const realloc = reallocateFreedSlot(t.slotId);
+    await store.tokens.set({ ...t, status: "cancelled" });
+    await decrementSlotOccupancy(t.slotId);
+    const realloc = await reallocateFreedSlot(t.slotId);
     reallocations += realloc.promotions.length;
     log(
       "10:30",
@@ -215,12 +217,12 @@ export function runSimulation(scenario: Scenario): {
   }
 
   // 2 no-shows
-  const allocated = store.tokens.getAll().filter((t) => t.status === "allocated");
+  const allocated = (await store.tokens.getAll()).filter((t) => t.status === "allocated");
   for (let i = 0; i < 2 && i < allocated.length; i++) {
     const t = allocated[i]!;
-    store.tokens.set({ ...t, status: "no_show" });
-    decrementSlotOccupancy(t.slotId);
-    const realloc = reallocateFreedSlot(t.slotId);
+    await store.tokens.set({ ...t, status: "no_show" });
+    await decrementSlotOccupancy(t.slotId);
+    const realloc = await reallocateFreedSlot(t.slotId);
     reallocations += realloc.promotions.length;
     log(
       "11:00",
@@ -231,12 +233,13 @@ export function runSimulation(scenario: Scenario): {
   }
 
   if (scenario === "with_emergencies") {
-    const em = emergencyInsert({
+    const d1Slots = await store.slots.getByDoctorAndDate(d1, date);
+    const em = await emergencyInsert({
       patientId: "P-emergency-1",
       doctorId: d1,
-      preferredSlot: store.slots.getByDoctorAndDate(d1, date)[0]?.id,
+      preferredSlot: d1Slots[0]?.id,
     });
-    ensurePatient("P-emergency-1", "Emergency Patient");
+    await ensurePatient("P-emergency-1", "Emergency Patient");
     log(
       "10:30",
       "emergency_insert",
@@ -246,32 +249,36 @@ export function runSimulation(scenario: Scenario): {
   }
 
   // Last-minute online booking for already-started slot (slot has tokens, "active")
-  const firstSlotD1 = store.slots.getByDoctorAndDate(d1, date).sort(
+  const d1SlotsAll = await store.slots.getByDoctorAndDate(d1, date);
+  const firstSlotD1 = d1SlotsAll.sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   )[0];
-  if (firstSlotD1 && store.tokens.getBySlot(firstSlotD1.id).length > 0) {
-    ensurePatient("P-lastminute", "Last-minute Online");
-    const r = allocateToken({
-      patientId: "P-lastminute",
-      doctorId: d1,
-      slotTime: firstSlotD1.startTime,
-      tokenSource: "online_booking",
-    });
-    log(
-      "10:00",
-      "last_minute_booking",
-      "Online booking for already-started slot (D1 first slot)",
-      r.success ? `Token ${r.token?.tokenNumber}` : `Waitlist ${r.waitlistPosition ?? ""}`
-    );
+  if (firstSlotD1) {
+    const tokensInFirst = await store.tokens.getBySlot(firstSlotD1.id);
+    if (tokensInFirst.length > 0) {
+      await ensurePatient("P-lastminute", "Last-minute Online");
+      const r = await allocateToken({
+        patientId: "P-lastminute",
+        doctorId: d1,
+        slotTime: firstSlotD1.startTime,
+        tokenSource: "online_booking",
+      });
+      log(
+        "10:00",
+        "last_minute_booking",
+        "Online booking for already-started slot (D1 first slot)",
+        r.success ? `Token ${r.token?.tokenNumber}` : `Waitlist ${r.waitlistPosition ?? ""}`
+      );
+    }
   }
 
   // Dr. Sharma delayed 20 min at 10:30
-  const sharmaSlots = store.slots.getByDoctorAndDate(d1, date).sort(
+  const sharmaSlots = (await store.slots.getByDoctorAndDate(d1, date)).sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
   const secondSlot = sharmaSlots[1];
   if (secondSlot) {
-    const delayResult = adjustSlotTiming(secondSlot.id, 20, "Doctor late");
+    const delayResult = await adjustSlotTiming(secondSlot.id, 20, "Doctor late");
     log(
       "10:30",
       "delay_propagation",
@@ -280,11 +287,13 @@ export function runSimulation(scenario: Scenario): {
     );
   }
 
-  const totalAllocated = store.tokens.getAll().filter(
+  const allTokensFinal = await store.tokens.getAll();
+  const totalAllocated = allTokensFinal.filter(
     (t) => !["cancelled", "no_show"].includes(t.status)
   ).length;
-  const waitlistSize = store.waitlist.getAll().filter((w) => w.status === "waiting").length;
-  const completed = store.tokens.getAll().filter((t) => t.status === "completed").length;
+  const allWaitlist = await store.waitlist.getAll();
+  const waitlistSize = allWaitlist.filter((w) => w.status === "waiting").length;
+  const completed = allTokensFinal.filter((t) => t.status === "completed").length;
 
   return {
     events: [...eventsLog],
@@ -292,6 +301,6 @@ export function runSimulation(scenario: Scenario): {
     waitlistSize,
     completed,
     reallocations,
-    slots: store.slots.getAll(),
+    slots: await store.slots.getAll(),
   };
 }

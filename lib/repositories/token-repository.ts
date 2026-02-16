@@ -5,14 +5,15 @@ export async function getAllocatedTokens(slotId: string) {
     .from('tokens')
     .select('*')
     .eq('slot_id', slotId)
-    .eq('status', 'ALLOCATED')
-    .order('priority_score', { ascending: true })
+    .eq('status', 'allocated')
+    .order('priority', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) throw error
   return data
 }
-export async function insertToken(payload) {
+
+export async function insertToken(payload: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('tokens')
     .insert(payload)
@@ -28,8 +29,8 @@ export async function getTopWaitlist(slotId: string) {
     .from('tokens')
     .select('*')
     .eq('slot_id', slotId)
-    .eq('status', 'WAITLIST')
-    .order('priority_score', { ascending: false })
+    .eq('status', 'waiting')
+    .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
     .single()

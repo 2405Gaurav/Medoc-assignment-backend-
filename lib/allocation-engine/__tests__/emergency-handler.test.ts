@@ -7,15 +7,16 @@ import { emergencyInsert } from "../emergency-handler";
 const DATE = "2024-02-01";
 
 describe("emergency-handler", () => {
-  beforeEach(() => {
-    store.reset();
-    seedForDate(DATE);
+  beforeEach(async () => {
+    await store.reset();
+    await seedForDate(DATE);
   });
 
-  it("inserts emergency when slot has capacity", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("inserts emergency when slot has capacity", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
-    store.patients.set({
+    await store.patients.set({
       id: "P-emergency",
       name: "Emergency Patient",
       phone: "+91-999",
@@ -23,7 +24,7 @@ describe("emergency-handler", () => {
       isFollowUp: false,
       previousVisit: null,
     });
-    const result = emergencyInsert({
+    const result = await emergencyInsert({
       patientId: "P-emergency",
       doctorId: "D1",
       preferredSlot: slot!.id,
@@ -33,19 +34,20 @@ describe("emergency-handler", () => {
     expect(result.bumpedPatients).toHaveLength(0);
   });
 
-  it("bumps lowest-priority token when slot full", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("bumps lowest-priority token when slot full", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
     const max = slot!.maxCapacity;
     for (let i = 0; i < max; i++) {
-      allocateToken({
+      await allocateToken({
         patientId: `P-${i}`,
         doctorId: "D1",
         slotTime: slot!.startTime,
         tokenSource: i === max - 1 ? "walk_in" : "paid_priority",
       });
     }
-    store.patients.set({
+    await store.patients.set({
       id: "P-emergency",
       name: "Emergency",
       phone: "+91-999",
@@ -53,7 +55,7 @@ describe("emergency-handler", () => {
       isFollowUp: false,
       previousVisit: null,
     });
-    const result = emergencyInsert({
+    const result = await emergencyInsert({
       patientId: "P-emergency",
       doctorId: "D1",
       preferredSlot: slot!.id,

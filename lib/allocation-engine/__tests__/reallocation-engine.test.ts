@@ -10,24 +10,25 @@ import {
 const DATE = "2024-02-01";
 
 describe("reallocation-engine", () => {
-  beforeEach(() => {
-    store.reset();
-    seedForDate(DATE);
+  beforeEach(async () => {
+    await store.reset();
+    await seedForDate(DATE);
   });
 
-  it("promotes waitlist patient on cancellation", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("promotes waitlist patient on cancellation", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
     const max = slot!.maxCapacity;
     for (let i = 0; i < max; i++) {
-      allocateToken({
+      await allocateToken({
         patientId: `P-${i}`,
         doctorId: "D1",
         slotTime: slot!.startTime,
         tokenSource: "walk_in",
       });
     }
-    const waitlistResult = allocateToken({
+    const waitlistResult = await allocateToken({
       patientId: "P-waitlist",
       doctorId: "D1",
       slotTime: slot!.startTime,
@@ -36,10 +37,11 @@ describe("reallocation-engine", () => {
     expect(waitlistResult.success).toBe(false);
     expect(waitlistResult.waitlistPosition).toBeGreaterThanOrEqual(1);
 
-    const tokenToCancel = store.tokens.getBySlot(slot!.id)[0];
-    store.tokens.set({ ...tokenToCancel!, status: "cancelled" });
-    decrementSlotOccupancy(slot!.id);
-    const realloc = reallocateFreedSlot(slot!.id);
+    const tokensInSlot = await store.tokens.getBySlot(slot!.id);
+    const tokenToCancel = tokensInSlot[0];
+    await store.tokens.set({ ...tokenToCancel!, status: "cancelled" });
+    await decrementSlotOccupancy(slot!.id);
+    const realloc = await reallocateFreedSlot(slot!.id);
 
     expect(realloc.reallocatedTo).toBe("P-waitlist");
     expect(realloc.promotions).toHaveLength(1);
@@ -47,22 +49,24 @@ describe("reallocation-engine", () => {
     expect(realloc.promotedToken?.tokenNumber).toBeDefined();
   });
 
-  it("decrements slot occupancy when no waitlist", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("decrements slot occupancy when no waitlist", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
-    allocateToken({
+    await allocateToken({
       patientId: "P-only",
       doctorId: "D1",
       slotTime: slot!.startTime,
       tokenSource: "walk_in",
     });
-    const token = store.tokens.getBySlot(slot!.id)[0];
-    store.tokens.set({ ...token!, status: "cancelled" });
-    decrementSlotOccupancy(slot!.id);
-    const realloc = reallocateFreedSlot(slot!.id);
+    const tokensInSlot = await store.tokens.getBySlot(slot!.id);
+    const token = tokensInSlot[0];
+    await store.tokens.set({ ...token!, status: "cancelled" });
+    await decrementSlotOccupancy(slot!.id);
+    const realloc = await reallocateFreedSlot(slot!.id);
     expect(realloc.reallocatedTo).toBeNull();
     expect(realloc.promotions).toHaveLength(0);
-    const updatedSlot = store.slots.getById(slot!.id);
+    const updatedSlot = await store.slots.getById(slot!.id);
     expect(updatedSlot!.currentOccupancy).toBe(0);
   });
 });

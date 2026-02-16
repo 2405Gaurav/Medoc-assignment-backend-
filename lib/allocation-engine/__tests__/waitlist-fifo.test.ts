@@ -8,45 +8,47 @@ import { reallocateFreedSlot, decrementSlotOccupancy } from "../reallocation-eng
 const DATE = "2024-02-01";
 
 describe("FIFO within same priority", () => {
-  beforeEach(() => {
-    store.reset();
-    seedForDate(DATE);
+  beforeEach(async () => {
+    await store.reset();
+    await seedForDate(DATE);
   });
 
-  it("promotes waitlist in FIFO order within same priority", () => {
-    const slot = store.slots.getAll().find((s) => s.doctorId === "D1");
+  it("promotes waitlist in FIFO order within same priority", async () => {
+    const allSlots = await store.slots.getAll();
+    const slot = allSlots.find((s) => s.doctorId === "D1");
     expect(slot).toBeDefined();
     const max = slot!.maxCapacity;
     for (let i = 0; i < max; i++) {
-      allocateToken({
+      await allocateToken({
         patientId: `P-filled-${i}`,
         doctorId: "D1",
         slotTime: slot!.startTime,
         tokenSource: "walk_in",
       });
     }
-    allocateToken({
+    await allocateToken({
       patientId: "P-wait-1",
       doctorId: "D1",
       slotTime: slot!.startTime,
       tokenSource: "walk_in",
     });
-    allocateToken({
+    await allocateToken({
       patientId: "P-wait-2",
       doctorId: "D1",
       slotTime: slot!.startTime,
       tokenSource: "walk_in",
     });
 
-    const sorted = getSortedWaitlist("D1", slot!.id);
+    const sorted = await getSortedWaitlist("D1", slot!.id);
     expect(sorted.length).toBeGreaterThanOrEqual(2);
     expect(sorted[0]!.patientId).toBe("P-wait-1");
     expect(sorted[1]!.patientId).toBe("P-wait-2");
 
-    const tokenToCancel = store.tokens.getBySlot(slot!.id)[0];
-    store.tokens.set({ ...tokenToCancel!, status: "cancelled" });
-    decrementSlotOccupancy(slot!.id);
-    const realloc = reallocateFreedSlot(slot!.id);
+    const tokensInSlot = await store.tokens.getBySlot(slot!.id);
+    const tokenToCancel = tokensInSlot[0];
+    await store.tokens.set({ ...tokenToCancel!, status: "cancelled" });
+    await decrementSlotOccupancy(slot!.id);
+    const realloc = await reallocateFreedSlot(slot!.id);
     expect(realloc.reallocatedTo).toBe("P-wait-1");
   });
 });
