@@ -12,7 +12,7 @@ export async function DELETE(
 ) {
   try {
     const { tokenId } = await params;
-    const token = store.tokens.getById(tokenId);
+    const token = await store.tokens.getById(tokenId);
     if (!token) {
       return errorResponse("Token not found", 404);
     }
@@ -24,9 +24,9 @@ export async function DELETE(
     }
 
     const slotId = token.slotId;
-    store.tokens.set({ ...token, status: "cancelled" });
-    decrementSlotOccupancy(slotId);
-    const realloc = reallocateFreedSlot(slotId);
+    await store.tokens.set({ ...token, status: "cancelled" });
+    await decrementSlotOccupancy(slotId);
+    const realloc = await reallocateFreedSlot(slotId);
 
     return jsonResponse({
       success: true,

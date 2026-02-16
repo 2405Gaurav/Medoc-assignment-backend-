@@ -15,7 +15,7 @@ export async function PATCH(
 ) {
   try {
     const { slotId } = await params;
-    const slot = store.slots.getById(slotId);
+    const slot = await store.slots.getById(slotId);
     if (!slot) {
       return errorResponse("Slot not found", 404);
     }
@@ -26,7 +26,7 @@ export async function PATCH(
       return handleZodError(parsed.error);
     }
 
-    const result = adjustSlotTiming(
+    const result = await adjustSlotTiming(
       slotId,
       parsed.data.delayMinutes,
       parsed.data.reason

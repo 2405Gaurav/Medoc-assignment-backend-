@@ -1,6 +1,7 @@
 /**
  * Emergency insertion: insert patient with highest priority (0).
  * May bump lowest-priority token in slot to next available slot or waitlist.
+ * All methods are now async for Supabase store.
  */
 
 import { v4 as uuidv4 } from "uuid";
@@ -21,9 +22,9 @@ export interface EmergencyInsertResult {
 /**
  * Find current or next available slot for doctor on given date.
  */
-function getCurrentOrNextSlot(doctorId: string, date: string): TimeSlot | undefined {
-  const slots = store.slots
-    .getByDoctorAndDate(doctorId, date)
+async function getCurrentOrNextSlot(doctorId: string, date: string): Promise<TimeSlot | undefined> {
+  const allSlots = await store.slots.getByDoctorAndDate(doctorId, date);
+  const slots = allSlots
     .filter((s) => s.status !== "cancelled" && s.status !== "completed")
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   const now = new Date();
@@ -33,8 +34,8 @@ function getCurrentOrNextSlot(doctorId: string, date: string): TimeSlot | undefi
 /**
  * Get lowest-priority token in slot (for bumping). Tie-break by positionInQueue (later = lower).
  */
-function getLowestPriorityTokenInSlot(slotId: string): Token | null {
-  const tokens = store.tokens.getBySlot(slotId);
+async function getLowestPriorityTokenInSlot(slotId: string): Promise<Token | null> {
+  const tokens = await store.tokens.getBySlot(slotId);
   if (tokens.length === 0) return null;
   return tokens.sort((a, b) => {
     const prio = b.priority - a.priority; // higher priority number = lower priority
@@ -46,24 +47,25 @@ function getLowestPriorityTokenInSlot(slotId: string): Token | null {
 /**
  * Bump token to next available slot or waitlist.
  */
-function bumpTokenToNextSlot(token: Token): {
+async function bumpTokenToNextSlot(token: Token): Promise<{
   newSlotId?: string;
   newTokenNumber?: string;
   onWaitlist: boolean;
-} {
-  const slot = store.slots.getById(token.slotId);
+}> {
+  const slot = await store.slots.getById(token.slotId);
   if (!slot) return { onWaitlist: true };
 
   const date = slot.date;
-  const slots = store.slots
-    .getByDoctorAndDate(token.doctorId, date)
+  const allSlots = await store.slots.getByDoctorAndDate(token.doctorId, date);
+  const slots = allSlots
     .filter((s) => s.status !== "cancelled" && s.id !== slot.id)
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   for (const s of slots) {
     if (s.currentOccupancy < s.maxCapacity && new Date(s.endTime) > new Date()) {
-      const positionInQueue = store.tokens.getBySlot(s.id).length + 1;
-      const newTokenNumber = generateTokenNumber(token.doctorId, s.id, positionInQueue);
+      const tokensInSlot = await store.tokens.getBySlot(s.id);
+      const positionInQueue = tokensInSlot.length + 1;
+      const newTokenNumber = await generateTokenNumber(token.doctorId, s.id, positionInQueue);
       const estimatedTime = estimateConsultationTime(s, positionInQueue);
 
       const newToken: Token = {
@@ -75,13 +77,13 @@ function bumpTokenToNextSlot(token: Token): {
         estimatedConsultationTime: estimatedTime,
         allocatedAt: new Date().toISOString(),
       };
-      store.tokens.set(newToken);
-      store.slots.set({ ...s, currentOccupancy: s.currentOccupancy + 1 });
+      await store.tokens.set(newToken);
+      await store.slots.set({ ...s, currentOccupancy: s.currentOccupancy + 1 });
       return { newSlotId: s.id, newTokenNumber, onWaitlist: false };
     }
   }
 
-  const wl = createWaitlistEntry({
+  await createWaitlistEntry({
     id: uuidv4(),
     patientId: token.patientId,
     doctorId: token.doctorId,
@@ -94,18 +96,18 @@ function bumpTokenToNextSlot(token: Token): {
 /**
  * Insert emergency patient. Bump lowest-priority patient if slot full.
  */
-export function emergencyInsert(params: {
+export async function emergencyInsert(params: {
   patientId: string;
   doctorId: string;
   preferredSlot?: string;
-}): EmergencyInsertResult {
+}): Promise<EmergencyInsertResult> {
   const result: EmergencyInsertResult = {
     success: false,
     bumpedPatients: [],
     notifications: [],
   };
 
-  const doctor = store.doctors.getById(params.doctorId);
+  const doctor = await store.doctors.getById(params.doctorId);
   if (!doctor) {
     result.message = "Invalid doctor";
     return result;
@@ -116,22 +118,22 @@ export function emergencyInsert(params: {
   let slot: TimeSlot | undefined;
 
   if (params.preferredSlot) {
-    slot = store.slots.getById(params.preferredSlot);
+    slot = await store.slots.getById(params.preferredSlot);
   }
   if (!slot) {
-    slot = getCurrentOrNextSlot(params.doctorId, date);
+    slot = await getCurrentOrNextSlot(params.doctorId, date);
   }
   if (!slot) {
     result.message = "No available slot for this doctor today";
     return result;
   }
 
-  const currentTokens = store.tokens.getBySlot(slot.id);
+  const currentTokens = await store.tokens.getBySlot(slot.id);
   const hasCapacity = currentTokens.length < slot.maxCapacity;
 
   if (hasCapacity) {
     const positionInQueue = currentTokens.length + 1;
-    const tokenNumber = generateTokenNumber(params.doctorId, slot.id, positionInQueue);
+    const tokenNumber = await generateTokenNumber(params.doctorId, slot.id, positionInQueue);
     const estimatedTime = estimateConsultationTime(slot, positionInQueue);
     const token: Token = {
       id: uuidv4(),
@@ -149,26 +151,27 @@ export function emergencyInsert(params: {
       positionInQueue,
       isEmergency: true,
     };
-    store.tokens.set(token);
-    store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy + 1 });
+    await store.tokens.set(token);
+    await store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy + 1 });
     result.success = true;
     result.allocatedSlot = { slotId: slot.id, tokenNumber, estimatedTime };
     result.notifications.push(`Emergency patient ${params.patientId} allocated ${tokenNumber}`);
     return result;
   }
 
-  const toBump = getLowestPriorityTokenInSlot(slot.id);
+  const toBump = await getLowestPriorityTokenInSlot(slot.id);
   if (!toBump) {
     result.message = "Slot full and no token to bump";
     return result;
   }
 
-  const bumpResult = bumpTokenToNextSlot(toBump);
-  store.tokens.set({ ...toBump, status: "cancelled" });
-  store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy - 1 });
+  const bumpResult = await bumpTokenToNextSlot(toBump);
+  await store.tokens.set({ ...toBump, status: "cancelled" });
+  await store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy - 1 });
 
-  const positionInQueue = store.tokens.getBySlot(slot.id).length + 1;
-  const tokenNumber = generateTokenNumber(params.doctorId, slot.id, positionInQueue);
+  const updatedTokens = await store.tokens.getBySlot(slot.id);
+  const positionInQueue = updatedTokens.length + 1;
+  const tokenNumber = await generateTokenNumber(params.doctorId, slot.id, positionInQueue);
   const estimatedTime = estimateConsultationTime(slot, positionInQueue);
   const token: Token = {
     id: uuidv4(),
@@ -186,8 +189,8 @@ export function emergencyInsert(params: {
     positionInQueue,
     isEmergency: true,
   };
-  store.tokens.set(token);
-  store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy + 1 });
+  await store.tokens.set(token);
+  await store.slots.set({ ...slot, currentOccupancy: slot.currentOccupancy + 1 });
 
   result.success = true;
   result.allocatedSlot = { slotId: slot.id, tokenNumber, estimatedTime };
