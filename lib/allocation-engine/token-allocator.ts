@@ -1,10 +1,11 @@
 /**
  * Main token allocation logic: validate, check capacity, assign position, generate token.
  * Enforces hard slot limits; adds to waitlist when full.
+ * All methods are now async for Supabase store.
  */
 
 import { v4 as uuidv4 } from "uuid";
-import type { Token, TimeSlot, TokenSource, Patient } from "@/lib/types";
+import type { Token, TimeSlot, TokenSource } from "@/lib/types";
 import { getPriorityForSource } from "./priority-calculator";
 import { getSortedWaitlist, createWaitlistEntry } from "./waitlist-manager";
 import { store } from "@/lib/store";
@@ -21,12 +22,12 @@ export interface AllocateResult {
 /**
  * Find slot by doctor and slot start time (ISO string match or same day + time).
  */
-export function findSlotForTime(
+export async function findSlotForTime(
   doctorId: string,
   slotTime: string
-): TimeSlot | undefined {
+): Promise<TimeSlot | undefined> {
   const date = slotTime.slice(0, 10);
-  const slots = store.slots.getByDoctorAndDate(doctorId, date);
+  const slots = await store.slots.getByDoctorAndDate(doctorId, date);
   const target = new Date(slotTime).getTime();
   return slots.find((s) => {
     const start = new Date(s.startTime).getTime();
@@ -38,18 +39,20 @@ export function findSlotForTime(
 /**
  * Generate human-readable token number: D{doctorId}-S{slotSeq}-T{tokenSeq}
  */
-export function generateTokenNumber(
+export async function generateTokenNumber(
   doctorId: string,
   slotId: string,
   positionInSlot: number
-): string {
-  const slot = store.slots.getById(slotId);
-  const slotSeq = slot
-    ? store.slots.getByDoctorAndDate(slot.doctorId, slot.date).sort(
-        (a, b) =>
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-      ).findIndex((s) => s.id === slotId) + 1
-    : 1;
+): Promise<string> {
+  const slot = await store.slots.getById(slotId);
+  let slotSeq = 1;
+  if (slot) {
+    const allSlots = await store.slots.getByDoctorAndDate(slot.doctorId, slot.date);
+    const sorted = allSlots.sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+    slotSeq = sorted.findIndex((s) => s.id === slotId) + 1;
+  }
   const shortDoc = doctorId.replace(/-/g, "").slice(0, 2).toUpperCase() || "D1";
   return `${shortDoc}-S${slotSeq}-T${String(positionInSlot).padStart(2, "0")}`;
 }
@@ -71,19 +74,19 @@ export function estimateConsultationTime(
 /**
  * Core allocation: validate request, check capacity, allocate or waitlist.
  */
-export function allocateToken(params: {
+export async function allocateToken(params: {
   patientId: string;
   doctorId: string;
   slotTime: string;
   tokenSource: TokenSource;
   patientDetails?: { name: string; phone: string; email?: string };
-}): AllocateResult {
-  const doctor = store.doctors.getById(params.doctorId);
+}): Promise<AllocateResult> {
+  const doctor = await store.doctors.getById(params.doctorId);
   if (!doctor) {
     return { success: false, message: "Invalid doctor" };
   }
 
-  const slot = findSlotForTime(params.doctorId, params.slotTime);
+  const slot = await findSlotForTime(params.doctorId, params.slotTime);
   if (!slot) {
     return { success: false, message: "Invalid or not found slot for given time" };
   }
@@ -93,7 +96,8 @@ export function allocateToken(params: {
   }
 
   // Duplicate booking check: same patient, same doctor, same day, active token
-  const existing = store.tokens.getByPatient(params.patientId).filter(
+  const existingTokens = await store.tokens.getByPatient(params.patientId);
+  const existing = existingTokens.filter(
     (t) =>
       t.doctorId === params.doctorId &&
       ["allocated", "waiting", "in_consultation"].includes(t.status)
@@ -106,13 +110,13 @@ export function allocateToken(params: {
   }
 
   const priority = getPriorityForSource(params.tokenSource);
-  const currentTokens = store.tokens.getBySlot(slot.id);
+  const currentTokens = await store.tokens.getBySlot(slot.id);
   const occupancy = currentTokens.length;
 
   if (occupancy >= slot.maxCapacity) {
     // Add to waitlist
-    const waitlistForSlot = getSortedWaitlist(params.doctorId, slot.id);
-    const entry = createWaitlistEntry({
+    const waitlistForSlot = await getSortedWaitlist(params.doctorId, slot.id);
+    const entry = await createWaitlistEntry({
       id: uuidv4(),
       patientId: params.patientId,
       doctorId: params.doctorId,
@@ -131,7 +135,7 @@ export function allocateToken(params: {
 
   const positionInQueue = occupancy + 1;
   const tokenId = uuidv4();
-  const tokenNumber = generateTokenNumber(
+  const tokenNumber = await generateTokenNumber(
     params.doctorId,
     slot.id,
     positionInQueue
@@ -154,8 +158,8 @@ export function allocateToken(params: {
     positionInQueue,
   };
 
-  store.tokens.set(token);
-  store.slots.set({
+  await store.tokens.set(token);
+  await store.slots.set({
     ...slot,
     currentOccupancy: slot.currentOccupancy + 1,
   });

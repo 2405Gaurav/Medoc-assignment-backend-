@@ -1,6 +1,7 @@
 /**
  * Waitlist operations: add, remove, get next promotable patient.
  * Ordered by priority ASC, then joinedAt ASC (FIFO within same priority).
+ * All methods are now async for Supabase store.
  */
 
 import type { WaitlistEntry, TokenSource } from "@/lib/types";
@@ -11,11 +12,11 @@ import { store } from "@/lib/store";
  * Get waitlist entries for a doctor, optionally filtered by preferred slot.
  * Sorted by priority ASC, joinedAt ASC.
  */
-export function getSortedWaitlist(
+export async function getSortedWaitlist(
   doctorId: string,
   preferredSlotId: string | null
-): WaitlistEntry[] {
-  const entries = store.waitlist.getByDoctorAndSlot(doctorId, preferredSlotId);
+): Promise<WaitlistEntry[]> {
+  const entries = await store.waitlist.getByDoctorAndSlot(doctorId, preferredSlotId);
   return entries
     .filter((e) => e.status === "waiting")
     .sort((a, b) => {
@@ -29,35 +30,35 @@ export function getSortedWaitlist(
  * Get next patient to promote from waitlist for a given doctor/slot.
  * Returns null if waitlist empty.
  */
-export function getNextWaitlistPatient(
+export async function getNextWaitlistPatient(
   doctorId: string,
   preferredSlotId: string | null
-): WaitlistEntry | null {
-  const sorted = getSortedWaitlist(doctorId, preferredSlotId);
+): Promise<WaitlistEntry | null> {
+  const sorted = await getSortedWaitlist(doctorId, preferredSlotId);
   return sorted[0] ?? null;
 }
 
 /**
  * Mark waitlist entry as promoted (after token allocated).
  */
-export function markWaitlistPromoted(entryId: string): void {
-  const entry = store.waitlist.getById(entryId);
+export async function markWaitlistPromoted(entryId: string): Promise<void> {
+  const entry = await store.waitlist.getById(entryId);
   if (entry) {
-    store.waitlist.set({ ...entry, status: "promoted" });
+    await store.waitlist.set({ ...entry, status: "promoted" });
   }
 }
 
 /**
  * Create a new waitlist entry with correct priority from token source.
  */
-export function createWaitlistEntry(params: {
+export async function createWaitlistEntry(params: {
   id: string;
   patientId: string;
   doctorId: string;
   preferredSlotId: string | null;
   tokenSource: TokenSource;
   patientDetails?: { name: string; phone: string; email?: string };
-}): WaitlistEntry {
+}): Promise<WaitlistEntry> {
   const priority = getPriorityForSource(params.tokenSource);
   const entry: WaitlistEntry = {
     id: params.id,
@@ -70,6 +71,6 @@ export function createWaitlistEntry(params: {
     status: "waiting",
     patientDetails: params.patientDetails,
   };
-  store.waitlist.set(entry);
+  await store.waitlist.set(entry);
   return entry;
 }

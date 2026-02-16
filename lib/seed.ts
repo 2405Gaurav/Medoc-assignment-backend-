@@ -1,6 +1,7 @@
 /**
  * Seed doctors and time slots for the OPD.
  * Call from API or simulation to bootstrap data.
+ * Now async because the store uses Supabase.
  */
 
 import { v4 as uuidv4 } from "uuid";
@@ -36,7 +37,6 @@ function generateSlotsForDoctor(doctor: Doctor, date: string): TimeSlot[] {
   const start = new Date(`${date}T${doctor.workingHours.start}:00`);
   const end = new Date(`${date}T${doctor.workingHours.end}:00`);
   let current = new Date(start);
-  let seq = 0;
   while (current < end) {
     const slotEnd = new Date(current.getTime() + doctor.slotDuration * 60 * 1000);
     if (slotEnd > end) break;
@@ -53,52 +53,57 @@ function generateSlotsForDoctor(doctor: Doctor, date: string): TimeSlot[] {
       estimatedDelay: 0,
     });
     current = slotEnd;
-    seq++;
   }
   return slots;
 }
 
-export function seedDoctors(): Doctor[] {
+export async function seedDoctors(): Promise<Doctor[]> {
   const ids = ["D1", "D2", "D3"];
   const result: Doctor[] = [];
-  DOCTORS.forEach((d, i) => {
-    const doctor: Doctor = { ...d, id: ids[i] };
-    store.doctors.set(doctor);
+  for (let i = 0; i < DOCTORS.length; i++) {
+    const doctor: Doctor = { ...DOCTORS[i], id: ids[i] };
+    await store.doctors.set(doctor);
     result.push(doctor);
-  });
+  }
   return result;
 }
 
-export function seedSlotsForDate(date: string): TimeSlot[] {
-  const doctors = store.doctors.getAll();
+export async function seedSlotsForDate(date: string): Promise<TimeSlot[]> {
+  const doctors = await store.doctors.getAll();
   const allSlots: TimeSlot[] = [];
   for (const doctor of doctors) {
     const slots = generateSlotsForDoctor(doctor, date);
-    slots.forEach((s) => {
-      store.slots.set(s);
+    for (const s of slots) {
+      await store.slots.set(s);
       allSlots.push(s);
-    });
+    }
   }
   return allSlots;
 }
 
-export function seedForDate(date: string): { doctors: Doctor[]; slots: TimeSlot[] } {
-  store.reset();
-  const doctors = seedDoctors();
-  const slots = seedSlotsForDate(date);
+export async function seedForDate(date: string): Promise<{ doctors: Doctor[]; slots: TimeSlot[] }> {
+  await store.reset();
+  const doctors = await seedDoctors();
+  const slots = await seedSlotsForDate(date);
   return { doctors, slots };
 }
 
 /** Ensure doctors and slots exist for date without resetting store (no wipe of tokens/patients). */
-export function ensureDoctorsAndSlotsForDate(date: string): { doctors: Doctor[]; slots: TimeSlot[] } {
-  let doctors = store.doctors.getAll();
+export async function ensureDoctorsAndSlotsForDate(
+  date: string
+): Promise<{ doctors: Doctor[]; slots: TimeSlot[] }> {
+  let doctors = await store.doctors.getAll();
   if (doctors.length === 0) {
-    doctors = seedDoctors();
+    doctors = await seedDoctors();
   }
-  const existingSlots = store.slots.getByDoctorAndDate(doctors[0]!.id, date);
+  const existingSlots = await store.slots.getByDoctorAndDate(doctors[0]!.id, date);
   if (existingSlots.length === 0) {
-    return { doctors, slots: seedSlotsForDate(date) };
+    return { doctors, slots: await seedSlotsForDate(date) };
   }
-  const slots = doctors.flatMap((d) => store.slots.getByDoctorAndDate(d.id, date));
+  const slots: TimeSlot[] = [];
+  for (const d of doctors) {
+    const doctorSlots = await store.slots.getByDoctorAndDate(d.id, date);
+    slots.push(...doctorSlots);
+  }
   return { doctors, slots };
 }
