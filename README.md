@@ -1,93 +1,229 @@
-# MedflowX
+# **Medoc-Assignment (Backend-Intern)**
 
-**OPD Token Allocation System** — elastic capacity management for hospital out-patient departments. Overview: token allocation by priority, waitlist reallocation, emergency insertion, and delay propagation. Built with Next.js 14 and TypeScript.
+> **OPD Token Allocation System with Elastic Capacity Management for Hospital Out-Patient Departments**
 
-**Author:** Yash Dhiman
-
----
-
-## Features
-
-- **Token sources** (prioritized): Paid Priority (1) → Follow-up / Online Booking (2) → Walk-in (3); Emergency (0)
-- **Hard slot limits** — no overbooking; full slots add to waitlist
-- **Dynamic reallocation** — cancel/no-show frees slot; waitlist promoted by priority then FIFO
-- **Emergency insertion** — bump lowest-priority token if slot full
-- **Delay propagation** — slot delay cascades to later slots and estimated times
+Medoc-Assessment is a priority-driven OPD queue and slot management system that enables intelligent token allocation, dynamic waitlist handling, emergency insertion, and delay propagation. Built using **Next.js 14**, **TypeScript**, and **Tailwind CSS**, it simulates real hospital outpatient workflows with realistic operational constraints.
 
 ---
 
-## Flowchart: Token allocation
+## 👤 Author
+
+**Gaurav Thakur**
+
+---
+
+## 📌 Overview
+
+The system manages outpatient department flow through a robust set of capabilities:
+
+- ✅ Priority-based token allocation
+- ✅ Strict slot capacity enforcement
+- ✅ Automatic waitlist promotion
+- ✅ Emergency patient handling
+- ✅ Cascading delay adjustments
+- ✅ Full OPD day simulation across multiple doctors
+
+---
+
+## ⚙️ Core Features
+
+### 🔢 Token Priority Sources
+
+Priority order — **lowest number = highest priority**:
+
+| Priority | Type |
+|----------|------|
+| 0 | 🚨 Emergency |
+| 1 | 💳 Paid Priority |
+| 2 | 📅 Follow-up / Online Booking |
+| 3 | 🚶 Walk-in |
+
+---
+
+### 🔒 Slot Capacity Rules
+
+- **Hard slot limits** — prevents overbooking at all times
+- When a slot is full → **patient is automatically added to the waitlist**
+- Maintains **fair FIFO ordering** within the same priority level
+
+---
+
+### 🔄 Dynamic Reallocation
+
+Triggered when a token is **cancelled** or a patient is marked as a **no-show**:
+
+1. Slot becomes free
+2. Highest-priority waitlist patient is selected
+3. FIFO applied within the same priority tier
+4. **New token is automatically issued** for the freed slot
+
+---
+
+### 🚨 Emergency Insertion
+
+- Emergency patients can **force allocation into a full slot**
+- System **bumps the lowest-priority existing token**
+- Bumped patient is seamlessly moved to the **waitlist**
+
+---
+
+### ⏱️ Delay Propagation
+
+- A doctor's delay shifts the **current slot timing** forward
+- All **subsequent slots auto-adjust** accordingly
+- Updated **estimated visit times** are reflected system-wide in real time
+
+---
+
+## 🗺️ Token Allocation Flowchart
 
 ```
-                    ┌─────────────────┐
-                    │  Allocate       │
-                    │  Request        │
-                    └────────┬────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-                    │  Validate       │
-                    │  doctor, slot   │
-                    └────────┬────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-              ┌─────│  Slot capacity  │─────┐
-              │     │  available?      │     │
-              │     └─────────────────┘     │
-              │ YES                          │ NO
-              ▼                              ▼
-     ┌─────────────────┐           ┌─────────────────┐
-     │  Allocate token  │           │  Add to         │
-     │  → 201           │           │  waitlist       │
-     └─────────────────┘           │  → 200          │
-                                    └─────────────────┘
+┌─────────────────┐
+│    Allocate     │
+│    Request      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Validate     │
+│  doctor, slot   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Slot capacity  │
+│   available?    │
+└───────┬─────────┘
+        │
+   YES  │  NO
+   ▼         ▼
+┌──────────────┐   ┌──────────────────┐
+│ Allocate     │   │  Add to waitlist │
+│ token        │   │  → HTTP 200      │
+│ → HTTP 201   │   └──────────────────┘
+└──────────────┘
 ```
-
-**Reallocation (cancel / no-show):** Free slot → take next waitlist patient (priority ASC, FIFO) → create token for freed slot.
 
 ---
 
-## Tech stack
+## 🔁 Reallocation Logic (Cancel / No-Show)
 
-Next.js 14, TypeScript, Tailwind CSS, Vitest.
+```
+Free Slot
+    ↓
+Select next waitlist patient
+(priority ASC → FIFO within same priority)
+    ↓
+Create new token for freed slot
+```
 
-## Quick start
+---
+
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| **Next.js 14 (App Router)** | Full-stack framework |
+| **TypeScript** | Type-safe development |
+| **Tailwind CSS** | UI styling |
+| **Vitest** | Unit testing |
+
+---
+
+## 🚀 Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Use **Dashboard**, **Allocate Token**, **Waitlist**, and **Simulation**.
+Open in your browser:
 
-| Command         | Description           |
-|-----------------|-----------------------|
-| `npm run dev`   | Development server    |
-| `npm run build` | Production build      |
-| `npm run test`  | Unit tests (Vitest)    |
+```
+http://localhost:3000
+```
 
----
+**Available Modules:**
 
-## Project structure
-
-- `app/` — pages (dashboard, token-allocation, waitlist, simulation) and API routes
-- `lib/` — types, store, seed, allocation-engine (priority, allocator, waitlist, reallocation, emergency, delay), simulation
+- 📊 Dashboard
+- 🎫 Token Allocation
+- 📋 Waitlist
+- 🔬 Simulation
 
 ---
 
-## API (summary)
+## 📜 Scripts
 
-- `POST /api/tokens/allocate` — allocate or waitlist
-- `DELETE /api/tokens/:id/cancel` — cancel and reallocate
-- `POST /api/tokens/:id/mark-no-show` — no-show and reallocate
-- `POST /api/tokens/emergency-insert` — emergency insert (may bump one)
-- `GET /api/doctors/:id/slots?date=` — slots for doctor
-- `GET /api/waitlist` — waitlist entries
-- `POST /api/simulation/run` — run OPD day simulation (3 doctors)
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run test` | Run unit tests (Vitest) |
 
 ---
 
-## License
+## 🗂️ Project Structure
 
-MIT.
+```
+app/
+  ├── dashboard/
+  ├── token-allocation/
+  ├── waitlist/
+  ├── simulation/
+  └── api/
+
+lib/
+  ├── types/
+  ├── store/
+  ├── seed/
+  ├── allocation-engine/
+  └── simulation/
+```
+
+---
+
+## 📡 API Summary
+
+### 🎫 Token Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/tokens/allocate` | Allocate token or add to waitlist |
+| `DELETE` | `/api/tokens/:id/cancel` | Cancel token and trigger reallocation |
+| `POST` | `/api/tokens/:id/mark-no-show` | Mark no-show and trigger reallocation |
+| `POST` | `/api/tokens/emergency-insert` | Force emergency patient insertion |
+
+### 🩺 Doctors & Slots
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/doctors/:id/slots?date=` | Fetch available slots for a doctor |
+
+### 📋 Waitlist
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/waitlist` | Retrieve all waitlist entries |
+
+### 🔬 Simulation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/simulation/run` | Run a full OPD day simulation |
+
+---
+
+## 📝 Notes
+
+This project is designed as a **real-world OPD flow simulation**, suitable for:
+
+- 🏥 Hospital queue optimization research
+- 💼 Healthcare SaaS prototypes
+- 🧩 System design demonstrations
+- 🧑‍💻 Full-stack engineering portfolios
+
+---
+
+## 📄 License
+
+**MIT License** — free to use, modify, and distribute.
