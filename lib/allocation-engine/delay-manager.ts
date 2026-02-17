@@ -1,10 +1,9 @@
 /**
  * Slot delay propagation: when doctor runs late, shift downstream slots and
  * recalculate estimated consultation times for affected tokens.
- * All methods are now async for Supabase store.
  */
 
-import type { TimeSlot } from "@/lib/types";
+import type { TimeSlot, Token } from "@/lib/types";
 import { estimateConsultationTime } from "./token-allocator";
 import { store } from "@/lib/store";
 
@@ -17,12 +16,12 @@ export interface DelayAdjustmentResult {
 /**
  * Apply delay to a slot and cascade to all subsequent slots for that doctor on same day.
  */
-export async function adjustSlotTiming(
+export function adjustSlotTiming(
   slotId: string,
   delayMinutes: number,
   _reason?: string
-): Promise<DelayAdjustmentResult> {
-  const slot = await store.slots.getById(slotId);
+): DelayAdjustmentResult {
+  const slot = store.slots.getById(slotId);
   const result: DelayAdjustmentResult = {
     affectedSlots: [],
     rescheduledPatients: [],
@@ -33,8 +32,8 @@ export async function adjustSlotTiming(
 
   const date = slot.date;
   const doctorId = slot.doctorId;
-  const allSlotsRaw = await store.slots.getByDoctorAndDate(doctorId, date);
-  const allSlots = allSlotsRaw
+  const allSlots = store.slots
+    .getByDoctorAndDate(doctorId, date)
     .filter((s) => s.status !== "cancelled" && s.status !== "completed")
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
@@ -56,7 +55,7 @@ export async function adjustSlotTiming(
       estimatedDelay: cumulativeDelay,
       status: s.status === "scheduled" ? "delayed" : s.status,
     };
-    await store.slots.set(updated);
+    store.slots.set(updated);
     result.affectedSlots.push({
       slotId: s.id,
       newStartTime: updated.actualStartTime ?? updated.startTime,
@@ -64,10 +63,10 @@ export async function adjustSlotTiming(
     });
     cumulativeDelay += 0;
 
-    const tokensInSlot = await store.tokens.getBySlot(s.id);
+    const tokensInSlot = store.tokens.getBySlot(s.id);
     for (const t of tokensInSlot) {
       const newEstimated = estimateConsultationTime(updated, t.positionInQueue);
-      await store.tokens.set({ ...t, estimatedConsultationTime: newEstimated });
+      store.tokens.set({ ...t, estimatedConsultationTime: newEstimated });
       result.rescheduledPatients.push({
         tokenId: t.id,
         patientId: t.patientId,

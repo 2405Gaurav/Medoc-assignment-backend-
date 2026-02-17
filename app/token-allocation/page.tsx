@@ -13,12 +13,12 @@ const TOKEN_SOURCES: ReadonlyArray<{ value: "online_booking" | "walk_in" | "paid
 ] as const;
 
 export default function TokenAllocationPage() {
-  const [date, setDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  // --- Exact Logic Preserved ---
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [slots, setSlots] = useState<Array<{ slotId: string; startTime: string; endTime: string; doctorId: string; availableTokens?: number; maxCapacity?: number }>>([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+  
   const [form, setForm] = useState({
     patientId: "",
     doctorId: "D1",
@@ -28,6 +28,7 @@ export default function TokenAllocationPage() {
     phone: "",
     email: "",
   });
+
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -35,6 +36,7 @@ export default function TokenAllocationPage() {
     estimatedTime?: string;
     waitlistPosition?: number;
   } | null>(null);
+  
   const [loading, setLoading] = useState(false);
 
   const loadSlots = useCallback(
@@ -133,26 +135,32 @@ export default function TokenAllocationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      <div className="fixed inset-0 medical-grid opacity-20 pointer-events-none" />
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-teal-100 selection:text-teal-900">
       
-      <header className="relative z-10 border-b border-white/10 glass-dark">
+      {/* Background Decor */}
+      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" 
+           style={{ backgroundImage: 'radial-gradient(#0F172A 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
+      />
+
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center border border-white/20">
-              <MedicalIcon className="w-5 h-5" />
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 group-hover:scale-105 transition-transform">
+              <MedicalIcon className="w-4 h-4" />
             </div>
-            <span className="text-xl font-bold">MedflowX</span>
+            <span className="text-lg font-bold tracking-tight text-slate-800 group-hover:text-teal-700 transition-colors">MedflowX</span>
           </Link>
           <nav className="hidden md:flex gap-6">
             {[
               { href: "/dashboard", label: "Dashboard" },
               { href: "/waitlist", label: "Waitlist" },
+              { href: "/simulation", label: "Simulation" },
             ].map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-white/70 hover:text-white transition-colors text-sm font-medium"
+                className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
               >
                 {item.label}
               </Link>
@@ -161,212 +169,236 @@ export default function TokenAllocationPage() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-black mb-3">Allocate Token</h1>
-          <p className="text-white/50 mb-2">Request an OPD appointment token</p>
-          <p className="text-white/40 text-sm">System handles delays (slot timing), cancellations (reallocation to waitlist), and emergency insertions.</p>
+      <main className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
+        
+        {/* Title Section */}
+        <div className="mb-10 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-100 mb-4">
+             <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+             <span className="text-xs font-bold uppercase tracking-wide text-teal-700">OPD Desk</span>
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Allocate New Token</h1>
+          <p className="text-slate-500 max-w-lg mx-auto text-lg">
+            Generate appointments with intelligent slot management.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 md:p-8 border border-white/10 space-y-6 glow-hover animate-fade-in-up">
-          <div>
-            <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-              Patient ID <span className="text-white/40 font-normal normal-case">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={form.patientId}
-              onChange={(e) => setForm((f) => ({ ...f, patientId: e.target.value }))}
-              placeholder="P-001"
-              className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 placeholder:text-white/30 focus:outline-none focus:border-white/40 transition"
-            />
+        {/* Form Container */}
+        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          
+          <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Allocation Details</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-                Doctor
-              </label>
-              <select
-                value={form.doctorId}
-                onChange={(e) => setForm((f) => ({ ...f, doctorId: e.target.value }))}
-                className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 focus:outline-none focus:border-white/40 transition"
-              >
-                <option value="D1" className="bg-black">Dr. Sharma (General Medicine)</option>
-                <option value="D2" className="bg-black">Dr. Patel (Cardiology)</option>
-                <option value="D3" className="bg-black">Dr. Singh (Orthopedics)</option>
-              </select>
+          <form onSubmit={handleSubmit} className="p-8 space-y-8">
+            
+            {/* Section 1: Doctor & Date */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Select Doctor</label>
+                <div className="relative">
+                  <select
+                    value={form.doctorId}
+                    onChange={(e) => setForm((f) => ({ ...f, doctorId: e.target.value }))}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all shadow-sm"
+                  >
+                    <option value="D1">Dr. Sharma (General Medicine)</option>
+                    <option value="D2">Dr. Patel (Cardiology)</option>
+                    <option value="D3">Dr. Singh (Orthopedics)</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Appointment Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all shadow-sm"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-                Date
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 focus:outline-none focus:border-white/40 transition"
-              />
-            </div>
-          </div>
+            {/* Section 2: Slot & Source */}
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="flex justify-between text-sm font-semibold text-slate-700">
+                  <span>Available Slots</span>
+                  {slotsLoading && <span className="text-teal-600 text-xs animate-pulse">Fetching availability...</span>}
+                </label>
+                <div className="relative">
+                  <select
+                    value={slotsLoading ? "" : form.slotTime}
+                    onChange={(e) => setForm((f) => ({ ...f, slotTime: e.target.value }))}
+                    disabled={slotsLoading || slots.length === 0}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-400"
+                    required
+                  >
+                    {slotsLoading ? (
+                      <option value="">Loading schedules...</option>
+                    ) : slotsError ? (
+                      <option value="">Error loading slots</option>
+                    ) : slots.length === 0 ? (
+                      <option value="">No slots available for this date</option>
+                    ) : (
+                      slots.map((s) => {
+                        const timeLabel = `${new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                        const avail = s.availableTokens != null ? ` (${s.availableTokens} left)` : "";
+                        return (
+                          <option key={s.slotId} value={s.startTime}>
+                            {timeLabel}{avail}
+                          </option>
+                        );
+                      })
+                    )}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-              Slot Time
-            </label>
-            <select
-              value={slotsLoading ? "" : form.slotTime}
-              onChange={(e) => setForm((f) => ({ ...f, slotTime: e.target.value }))}
-              disabled={slotsLoading || slots.length === 0}
-              className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 focus:outline-none focus:border-white/40 transition disabled:opacity-60 disabled:cursor-not-allowed"
-              required
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Token Source</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {TOKEN_SOURCES.map((opt) => (
+                    <label 
+                      key={opt.value}
+                      className={`
+                        cursor-pointer text-center px-3 py-2 rounded-lg border text-xs font-medium transition-all
+                        ${form.tokenSource === opt.value 
+                          ? 'bg-teal-50 border-teal-200 text-teal-700 ring-1 ring-teal-500/20' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}
+                      `}
+                    >
+                      <input 
+                        type="radio" 
+                        name="tokenSource" 
+                        value={opt.value}
+                        checked={form.tokenSource === opt.value}
+                        onChange={(e) => setForm((f) => ({ ...f, tokenSource: e.target.value as any }))}
+                        className="sr-only"
+                      />
+                      {opt.label.split(' ')[0]} {/* Shortened label for grid */}
+                      <span className="block text-[10px] opacity-70 font-normal">{opt.label.split(' ').slice(1).join(' ')}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Patient Info (Optional) */}
+            <div className="pt-6 border-t border-slate-100">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Patient Information (Optional)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                 <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Patient ID</label>
+                    <input
+                      type="text"
+                      value={form.patientId}
+                      onChange={(e) => setForm((f) => ({ ...f, patientId: e.target.value }))}
+                      placeholder="e.g. P-001"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none text-sm"
+                    />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Full Name</label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="John Doe"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none text-sm"
+                    />
+                 </div>
+              </div>
+              <div className="space-y-2">
+                 <label className="text-sm font-medium text-slate-700">Phone Number</label>
+                 <input
+                   type="text"
+                   value={form.phone}
+                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                   placeholder="+1 (555) 000-0000"
+                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none text-sm"
+                 />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold text-lg hover:bg-teal-700 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-lg shadow-teal-600/20 hover:shadow-teal-600/30 flex items-center justify-center gap-2"
             >
-              {slotsLoading ? (
-                <option value="" className="bg-black">Loading slots...</option>
-              ) : slotsError ? (
-                <option value="" className="bg-black">{slotsError}</option>
-              ) : slots.length === 0 ? (
-                <option value="" className="bg-black">No slots available for this date</option>
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
               ) : (
-                slots.map((s) => {
-                  const timeLabel = `${new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-                  const avail = s.availableTokens != null ? ` (${s.availableTokens} available)` : "";
-                  return (
-                    <option key={s.slotId} value={s.startTime} className="bg-black">
-                      {timeLabel}{avail}
-                    </option>
-                  );
-                })
+                <>
+                  Allocate Token
+                  <ArrowRightIcon className="w-5 h-5" />
+                </>
               )}
-            </select>
-          </div>
+            </button>
+          </form>
+        </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-              Token Source
-            </label>
-            <p className="text-white/50 text-xs mb-2">Determines priority when slots are full and for waitlist reallocation.</p>
-            <select
-              value={form.tokenSource}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  tokenSource: e.target.value as (typeof form)["tokenSource"],
-                }))
-              }
-              className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 focus:outline-none focus:border-white/40 transition"
-            >
-              {TOKEN_SOURCES.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-black">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-                Name <span className="text-white/40 font-normal normal-case">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 placeholder:text-white/30 focus:outline-none focus:border-white/40 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-white/80 mb-2 uppercase tracking-wider">
-                Phone <span className="text-white/40 font-normal normal-case">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                className="w-full glass rounded-lg px-4 py-3 border border-white/20 text-white bg-white/5 placeholder:text-white/30 focus:outline-none focus:border-white/40 transition"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 glow-hover flex items-center justify-center gap-2 group"
-          >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                <span>Allocating...</span>
-              </>
-            ) : (
-              <>
-                <span>Allocate Token</span>
-                <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
-          </button>
-        </form>
-
+        {/* Result Card */}
         {result && (
-          <div
-            className={`mt-8 rounded-2xl border p-6 md:p-8 glow-hover ${
-              result.success
-                ? "glass border-white/20"
-                : "glass-dark border-white/10"
-            }`}
-          >
-            {result.success ? (
-              <>
-                <div className="flex items-center gap-3 mb-6 animate-fade-in">
-                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-black animate-scale-in">
-                    <CheckIcon className="w-6 h-6" />
+          <div className="mt-8 animate-fade-in-up">
+            <div className={`rounded-2xl border p-8 shadow-lg ${result.success ? "bg-teal-50 border-teal-100" : "bg-white border-slate-200"}`}>
+              
+              {result.success ? (
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckIcon className="w-8 h-8" />
                   </div>
-                  <span className="font-bold text-xl">Token Allocated</span>
+                  <h3 className="text-2xl font-bold text-teal-800 mb-2">Token Allocated Successfully!</h3>
+                  <p className="text-teal-600 mb-6">The appointment has been confirmed.</p>
+                  
+                  <div className="bg-white rounded-xl border border-teal-100 p-6 max-w-sm mx-auto shadow-sm">
+                     <div className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Token Number</div>
+                     <div className="text-5xl font-black text-slate-800 font-mono tracking-tighter mb-4">{result.tokenNumber}</div>
+                     
+                     {result.estimatedTime && (
+                       <div className="pt-4 border-t border-slate-100">
+                         <div className="text-xs text-slate-400 uppercase font-bold mb-1">Estimated Time</div>
+                         <div className="text-sm font-semibold text-slate-700">
+                            {new Date(result.estimatedTime).toLocaleString(undefined, {
+                              weekday: 'short',
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            })}
+                         </div>
+                       </div>
+                     )}
+                  </div>
                 </div>
-                {result.tokenNumber && (
-                  <div className="mb-6">
-                    <p className="text-sm text-white/50 mb-2 uppercase tracking-wider">Token Number</p>
-                    <p className="text-4xl md:text-5xl font-black font-mono tracking-wider text-white">
-                      {result.tokenNumber}
-                    </p>
+              ) : (
+                <div className="text-center">
+                   <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-100">
+                    <AlertIcon className="w-8 h-8" />
                   </div>
-                )}
-                {result.estimatedTime && (
-                  <div className="mb-6 p-4 glass-dark rounded-lg border border-white/10">
-                    <p className="text-sm text-white/50 mb-1 uppercase tracking-wider">Estimated Time</p>
-                    <p className="text-lg font-semibold text-white">
-                      {new Date(result.estimatedTime).toLocaleString(undefined, {
-                        dateStyle: "full",
-                        timeStyle: "short",
-                      })}
-                    </p>
-                  </div>
-                )}
-                <p className="text-sm text-white/60 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                  Please proceed to the OPD desk with this token
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 mb-4 animate-fade-in">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white border border-white/30 animate-scale-in">
-                    <AlertIcon className="w-6 h-6" />
-                  </div>
-                  <span className="font-bold text-xl">Added to Waitlist</span>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">Slot Full - Added to Waitlist</h3>
+                  <p className="text-slate-500 mb-6 max-w-md mx-auto">{result.message}</p>
+                  
+                  {result.waitlistPosition != null && (
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 inline-block">
+                      <span className="text-slate-400 text-xs font-bold uppercase mr-2">Waitlist Position:</span>
+                      <span className="text-xl font-black text-slate-800 font-mono">#{result.waitlistPosition}</span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-white/70 mb-4">{result.message}</p>
-                {result.waitlistPosition != null && (
-                  <div className="p-4 glass-dark rounded-lg border border-white/10">
-                    <p className="text-sm text-white/50 mb-1 uppercase tracking-wider">Your Position</p>
-                    <p className="text-2xl font-bold font-mono text-white">{result.waitlistPosition}</p>
-                  </div>
-                )}
-              </>
-            )}
+              )}
+            </div>
           </div>
         )}
       </main>

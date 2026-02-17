@@ -1,11 +1,10 @@
 /**
  * Dynamic token reallocation when slots are freed (cancellation, no-show).
  * Promotes highest-priority waitlist patient and allocates token for freed slot.
- * All methods are now async for Supabase store.
  */
 
 import { v4 as uuidv4 } from "uuid";
-import type { Token } from "@/lib/types";
+import type { Token, TimeSlot } from "@/lib/types";
 import { getNextWaitlistPatient, markWaitlistPromoted } from "./waitlist-manager";
 import { generateTokenNumber, estimateConsultationTime } from "./token-allocator";
 import { store } from "@/lib/store";
@@ -20,8 +19,8 @@ export interface ReallocationResult {
 /**
  * When a token is cancelled or marked no-show, try to promote from waitlist.
  */
-export async function reallocateFreedSlot(slotId: string): Promise<ReallocationResult> {
-  const slot = await store.slots.getById(slotId);
+export function reallocateFreedSlot(slotId: string): ReallocationResult {
+  const slot = store.slots.getById(slotId);
   const result: ReallocationResult = {
     freedSlotId: slotId,
     reallocatedTo: null,
@@ -31,16 +30,20 @@ export async function reallocateFreedSlot(slotId: string): Promise<ReallocationR
   if (!slot) return result;
 
   const doctorId = slot.doctorId;
-  const next = await getNextWaitlistPatient(doctorId, slotId);
+  const next = getNextWaitlistPatient(doctorId, slotId);
   if (!next) {
+    store.slots.set({
+      ...slot,
+      currentOccupancy: Math.max(0, slot.currentOccupancy - 1),
+    });
     return result;
   }
 
-  const currentTokensInSlot = await store.tokens.getBySlot(slotId);
+  const currentTokensInSlot = store.tokens.getBySlot(slotId);
   const positionInQueue = currentTokensInSlot.length + 1;
 
   const tokenId = uuidv4();
-  const tokenNumber = await generateTokenNumber(doctorId, slotId, positionInQueue);
+  const tokenNumber = generateTokenNumber(doctorId, slotId, positionInQueue);
   const estimatedTime = estimateConsultationTime(slot, positionInQueue);
 
   const newToken: Token = {
@@ -59,9 +62,9 @@ export async function reallocateFreedSlot(slotId: string): Promise<ReallocationR
     positionInQueue,
   };
 
-  await store.tokens.set(newToken);
-  await markWaitlistPromoted(next.id);
-  await store.slots.set({
+  store.tokens.set(newToken);
+  markWaitlistPromoted(next.id);
+  store.slots.set({
     ...slot,
     currentOccupancy: slot.currentOccupancy + 1, // fill the freed spot
   });
@@ -75,10 +78,10 @@ export async function reallocateFreedSlot(slotId: string): Promise<ReallocationR
 /**
  * Decrement slot occupancy when a token is removed (cancel/no-show).
  */
-export async function decrementSlotOccupancy(slotId: string): Promise<void> {
-  const slot = await store.slots.getById(slotId);
+export function decrementSlotOccupancy(slotId: string): void {
+  const slot = store.slots.getById(slotId);
   if (slot) {
-    await store.slots.set({
+    store.slots.set({
       ...slot,
       currentOccupancy: Math.max(0, slot.currentOccupancy - 1),
     });
