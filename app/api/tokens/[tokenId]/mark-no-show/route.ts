@@ -29,7 +29,7 @@ export async function POST(
       );
     }
 
-    const token = await store.tokens.getById(tokenId);
+    const token = store.tokens.getById(tokenId);
     if (!token) {
       return errorResponse("Token not found", 404);
     }
@@ -41,9 +41,9 @@ export async function POST(
     }
 
     const slotId = token.slotId;
-    await store.tokens.set({ ...token, status: "no_show" });
-    await decrementSlotOccupancy(slotId);
-    const realloc = await reallocateFreedSlot(slotId);
+    store.tokens.set({ ...token, status: "no_show" });
+    decrementSlotOccupancy(slotId);
+    const realloc = reallocateFreedSlot(slotId);
 
     return jsonResponse({
       success: true,

@@ -38,14 +38,13 @@ export async function POST(request: NextRequest) {
       parsed.data;
 
     const date = slotTime.slice(0, 10);
-    const { slots } = await ensureDoctorsAndSlotsForDate(date);
+    const { slots } = ensureDoctorsAndSlotsForDate(date);
     if (slots.length === 0) {
       return errorResponse("No slots available for this date", 404);
     }
 
-    const existingPatient = await store.patients.getById(patientId);
-    if (!existingPatient && patientDetails) {
-      await store.patients.set({
+    if (!store.patients.getById(patientId) && patientDetails) {
+      store.patients.set({
         id: patientId,
         name: patientDetails.name,
         phone: patientDetails.phone,
@@ -55,7 +54,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const result = await allocateToken({
+    const result = allocateToken({
       patientId,
       doctorId,
       slotTime,

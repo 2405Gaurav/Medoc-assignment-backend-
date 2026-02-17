@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
     }
 
     const date = new Date().toISOString().slice(0, 10);
-    await ensureDoctorsAndSlotsForDate(date);
+    ensureDoctorsAndSlotsForDate(date);
 
-    const result = await emergencyInsert({
+    const result = emergencyInsert({
       patientId: parsed.data.patientId,
       doctorId: parsed.data.doctorId,
       preferredSlot: parsed.data.preferredSlot,

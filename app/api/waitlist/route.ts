@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
     const doctorId = request.nextUrl.searchParams.get("doctorId") ?? undefined;
     const priorityParam = request.nextUrl.searchParams.get("priority");
 
-    let entries = (await store.waitlist.getAll()).filter(
-      (w) => w.status === "waiting"
-    );
+    let entries = store.waitlist
+      .getAll()
+      .filter((w) => w.status === "waiting");
 
     if (doctorId) {
       entries = entries.filter((w) => w.doctorId === doctorId);
