@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return handleZodError(parsed.error);
     }
 
-    const result = await runSimulation(parsed.data.scenario as Scenario);
+    const result = runSimulation(parsed.data.scenario as Scenario);
     const slots = result.slots;
 
     return jsonResponse({
