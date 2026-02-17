@@ -99,29 +99,7 @@ export default function DashboardPage() {
            style={{ backgroundImage: 'radial-gradient(#0F172A 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
       />
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="text-lg font-bold tracking-tight text-slate-800 group-hover:text-teal-700 transition-colors">Medoc-Assesment</span>
-          </Link>
-          <nav className="flex gap-6">
-            {[
-              { href: "/token-allocation", label: "Allocate" },
-              { href: "/waitlist", label: "Waitlist" },
-              { href: "/simulation", label: "Simulation" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
+  
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         

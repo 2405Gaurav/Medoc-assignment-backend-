@@ -90,40 +90,6 @@ export default function HomePage() {
            style={{ backgroundImage: 'radial-gradient(#0F172A 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
       />
 
-      {/* ================= HEADER (Exact Routes) ================= */}
-      <header className="relative z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-          
-            <h1 className="text-xl font-black tracking-tight text-slate-800">MEDOC-Assesment</h1>
-          </div>
-          
-          {/* Exact Navbar Routes from your code */}
-          <nav className="hidden md:flex gap-8">
-            {[
-              { href: "/dashboard", label: "Dashboard" },
-              { href: "/token-allocation", label: "Allocate" },
-              { href: "/waitlist", label: "Waitlist" },
-              { href: "/simulation", label: "Simulation" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-sm font-medium text-slate-600 hover:text-teal-600 transition-colors relative group"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-4">
-             <span className="hidden sm:block text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">
-                v1.0.4
-             </span>
-          </div>
-        </div>
-      </header>
-
       <main className="relative z-10 flex flex-col">
         
         {/* ================= HERO SECTION (Split View) ================= */}
